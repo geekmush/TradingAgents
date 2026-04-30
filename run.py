@@ -15,11 +15,15 @@ Example
         --quick-model haiku --deep-model opus \\
         --analysts all
 
-Reports land in ``$TRADINGAGENTS_RESULTS_DIR/<TICKER>/<DATE>/reports/``
-(default ``~/.tradingagents/logs``). The full state JSON is written under
-``<TICKER>/TradingAgentsStrategy_logs/full_states_log_<DATE>.json`` by the
-graph itself; we additionally split out one markdown file per section so the
-artefact layout matches the interactive CLI.
+Reports land in ``./reports/<TICKER>_<YYYYMMDD>_<HHMMSS>/`` (override the
+parent with ``--report-dir``), using the same layered structure the
+interactive CLI produces (``1_analysts/``, ``2_research/``, ...,
+``complete_report.md``). We reuse ``cli.main.save_report_to_disk`` so the
+layout never drifts from the interactive CLI.
+
+The graph itself also writes the full state JSON under
+``<results_dir>/<TICKER>/TradingAgentsStrategy_logs/full_states_log_<DATE>.json``
+(``results_dir`` defaults to ``~/.tradingagents/logs``).
 """
 
 from __future__ import annotations
@@ -34,17 +38,6 @@ from typing import List
 from dotenv import load_dotenv
 
 ALL_ANALYSTS = ["market", "social", "news", "fundamentals"]
-
-# Section name -> markdown filename, matching the interactive CLI layout.
-REPORT_SECTIONS = {
-    "market_report": "market_report.md",
-    "sentiment_report": "sentiment_report.md",
-    "news_report": "news_report.md",
-    "fundamentals_report": "fundamentals_report.md",
-    "investment_plan": "investment_plan.md",
-    "trader_investment_plan": "trader_investment_plan.md",
-    "final_trade_decision": "final_trade_decision.md",
-}
 
 
 def parse_analysts(raw: str) -> List[str]:
@@ -130,24 +123,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Delete saved checkpoints before running.",
     )
     p.add_argument(
+        "--report-dir",
+        default="reports",
+        help="Parent directory for the per-run report folder. The folder name "
+        "is <TICKER>_<YYYYMMDD>_<HHMMSS>.",
+    )
+    p.add_argument(
         "--quiet",
         action="store_true",
         help="Suppress per-step debug output from the graph.",
     )
     return p
-
-
-def write_reports(results_dir: Path, final_state: dict) -> Path:
-    report_dir = results_dir / "reports"
-    report_dir.mkdir(parents=True, exist_ok=True)
-    for key, filename in REPORT_SECTIONS.items():
-        content = final_state.get(key)
-        if not content:
-            continue
-        if isinstance(content, list):
-            content = "\n".join(str(item) for item in content)
-        (report_dir / filename).write_text(str(content), encoding="utf-8")
-    return report_dir
 
 
 def main(argv: List[str] | None = None) -> int:
@@ -159,6 +145,7 @@ def main(argv: List[str] | None = None) -> int:
     # Imports deferred until after dotenv so env-driven config is honored.
     from tradingagents.default_config import DEFAULT_CONFIG
     from tradingagents.graph.trading_graph import TradingAgentsGraph
+    from cli.main import save_report_to_disk
 
     if args.clear_checkpoints:
         from tradingagents.graph.checkpointer import clear_all_checkpoints
@@ -197,11 +184,13 @@ def main(argv: List[str] | None = None) -> int:
 
     final_state, decision = graph.propagate(args.ticker, args.date)
 
-    results_dir = Path(config["results_dir"]) / args.ticker / args.date
-    report_dir = write_reports(results_dir, final_state)
+    timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_path = Path(args.report_dir) / f"{args.ticker}_{timestamp}"
+    report_file = save_report_to_disk(final_state, args.ticker, report_path)
 
-    print(f"\nReports written to: {report_dir}", file=sys.stderr)
-    print(f"Full state JSON:    "
+    print(f"\nReport saved to:  {report_path.resolve()}", file=sys.stderr)
+    print(f"Complete report:  {report_file.name}", file=sys.stderr)
+    print(f"Full state JSON:  "
           f"{Path(config['results_dir']) / args.ticker / 'TradingAgentsStrategy_logs'}",
           file=sys.stderr)
     print(f"\nFinal decision: {decision}")
