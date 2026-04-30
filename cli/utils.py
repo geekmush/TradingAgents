@@ -1,3 +1,5 @@
+import os
+
 import questionary
 from typing import List, Optional, Tuple, Dict
 
@@ -242,6 +244,11 @@ def select_llm_provider() -> tuple[str, str | None]:
         ("OpenRouter", "openrouter", "https://openrouter.ai/api/v1"),
         ("Azure OpenAI", "azure", None),
         ("Ollama", "ollama", "http://localhost:11434/v1"),
+        (
+            "Claude Bridge (local OpenAI-compatible proxy to Claude)",
+            "claude_bridge",
+            os.environ.get("CLAUDE_BRIDGE_URL", "http://127.0.0.1:8080/v1"),
+        ),
     ]
 
     choice = questionary.select(

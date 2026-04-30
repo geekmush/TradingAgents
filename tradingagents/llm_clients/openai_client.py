@@ -48,6 +48,13 @@ _PROVIDER_CONFIG = {
     "glm": ("https://api.z.ai/api/paas/v4/", "ZHIPU_API_KEY"),
     "openrouter": ("https://openrouter.ai/api/v1", "OPENROUTER_API_KEY"),
     "ollama": ("http://localhost:11434/v1", None),
+    "claude_bridge": ("http://127.0.0.1:8080/v1", None),
+}
+
+# Env vars that override the hardcoded base URL when set. Useful for local
+# bridges that may move (e.g., a remote claude-bridge instance).
+_PROVIDER_BASE_URL_ENV = {
+    "claude_bridge": "CLAUDE_BRIDGE_URL",
 }
 
 
@@ -78,6 +85,9 @@ class OpenAIClient(BaseLLMClient):
         # Provider-specific base URL and auth
         if self.provider in _PROVIDER_CONFIG:
             base_url, api_key_env = _PROVIDER_CONFIG[self.provider]
+            override_env = _PROVIDER_BASE_URL_ENV.get(self.provider)
+            if override_env:
+                base_url = os.environ.get(override_env, base_url)
             llm_kwargs["base_url"] = base_url
             if api_key_env:
                 api_key = os.environ.get(api_key_env)

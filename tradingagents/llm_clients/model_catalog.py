@@ -112,6 +112,25 @@ MODEL_OPTIONS: ProviderModeOptions = {
             ("Qwen3:latest (8B, local)", "qwen3:latest"),
         ],
     },
+    # Local OpenAI-compatible bridge that proxies to Claude via OAuth
+    # (see ../claude-bridge). Models are bridge aliases — use whichever the
+    # bridge's /v1/models advertises.
+    "claude_bridge": {
+        "quick": [
+            ("Claude Sonnet 4.6 (via bridge)", "sonnet-4-6"),
+            ("Claude Haiku 4.5 (via bridge)", "haiku-4-5"),
+            ("Claude Sonnet (latest, via bridge)", "sonnet"),
+            ("Claude Haiku (latest, via bridge)", "haiku"),
+            ("Custom model ID", "custom"),
+        ],
+        "deep": [
+            ("Claude Opus 4.7 (via bridge)", "opus-4-7"),
+            ("Claude Opus 4.6 (via bridge)", "opus-4-6"),
+            ("Claude Sonnet 4.6 (via bridge)", "sonnet-4-6"),
+            ("Claude Opus (latest, via bridge)", "opus"),
+            ("Custom model ID", "custom"),
+        ],
+    },
 }
 
 
