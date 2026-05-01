@@ -52,6 +52,9 @@ def create_portfolio_manager(llm):
 - **Underweight**: Reduce exposure, take partial profits
 - **Sell**: Exit position or avoid entry
 
+**Options Consideration**:
+For high-conviction 'Buy' or 'Sell' ratings, or when a specific hedge is required, explicitly state in your executive summary that the trade should be expressed via an **options strategy**. This will trigger the Options Strategist to find the optimal structure.
+
 **Context:**
 - Research Manager's investment plan: **{research_plan}**
 - Trader's transaction proposal: **{trader_plan}**

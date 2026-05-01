@@ -6,6 +6,13 @@ from langgraph.prebuilt import ToolNode
 
 from tradingagents.agents import *
 from tradingagents.agents.utils.agent_states import AgentState
+from tradingagents.agents.options_strategist import create_options_strategist
+from tradingagents.agents.utils.options_tools import (
+    validate_with_otb_engine,
+    get_options_chain,
+    get_iv_context,
+    get_strategy_backtest,
+)
 
 from .conditional_logic import ConditionalLogic
 
@@ -106,6 +113,8 @@ class GraphSetup:
         workflow.add_node("Neutral Analyst", neutral_analyst)
         workflow.add_node("Conservative Analyst", conservative_analyst)
         workflow.add_node("Portfolio Manager", portfolio_manager_node)
+        workflow.add_node("Options Strategist", create_options_strategist(self.deep_thinking_llm))
+        workflow.add_node("tools_options", ToolNode([validate_with_otb_engine, get_options_chain, get_iv_context, get_strategy_backtest]))
 
         # Define edges
         # Start with the first analyst
@@ -177,6 +186,17 @@ class GraphSetup:
             },
         )
 
-        workflow.add_edge("Portfolio Manager", END)
+        def should_use_options(state: AgentState):
+            decision = state["final_trade_decision"].lower()
+            if "options" in decision or "hedge" in decision:
+                return "Options Strategist"
+            return END
 
+        workflow.add_conditional_edges("Portfolio Manager", should_use_options)
+        workflow.add_edge("Options Strategist", "tools_options")
+        workflow.add_conditional_edges(
+            "tools_options",
+            lambda x: "Options Strategist" if hasattr(x["messages"][-1], "tool_calls") and x["messages"][-1].tool_calls else END
+        )
+        workflow.add_edge("Options Strategist", END)
         return workflow

@@ -38,6 +38,19 @@ from typing import List
 from dotenv import load_dotenv
 
 ALL_ANALYSTS = ["market", "social", "news", "fundamentals"]
+ALL_TICKERS = ["DIA", "DPST", "IWM", "LABU", "SOXL", "SPY", "TNA", "TQQQ", "QQQ", "YINN"]
+
+
+def parse_tickers(raw: str) -> List[str]:
+    if raw.strip().lower() == "all":
+        return list(ALL_TICKERS)
+    items = [a.strip().upper() for a in raw.split(",") if a.strip()]
+    unknown = [a for a in items if a not in ALL_TICKERS]
+    if unknown:
+        raise argparse.ArgumentTypeError(
+            f"Unknown tickers: {unknown}. Valid: {ALL_TICKERS} or 'all'."
+        )
+    return items
 
 
 def parse_analysts(raw: str) -> List[str]:
@@ -67,7 +80,12 @@ def build_parser() -> argparse.ArgumentParser:
         description="Run a TradingAgents analysis non-interactively.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    p.add_argument("--ticker", required=True, help="Stock ticker, e.g. QQQ.")
+    p.add_argument(
+        "--ticker", 
+        required=True, 
+        type=parse_tickers,
+        default=list(ALL_TICKERS),
+        help="Stock ticker, e.g. QQQ or 'all' for default list.")
     p.add_argument(
         "--date",
         type=parse_date,
@@ -98,7 +116,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--depth",
         type=int,
-        default=1,
+        default=2,
         help="Research depth (max debate and risk-discussion rounds).",
     )
     p.add_argument(
@@ -175,25 +193,27 @@ def main(argv: List[str] | None = None) -> int:
         debug=not args.quiet,
     )
 
-    print(
-        f"Running analysis: ticker={args.ticker} date={args.date} "
-        f"provider={args.provider} quick={args.quick_model} deep={args.deep_model} "
-        f"analysts={','.join(args.analysts)} depth={args.depth}",
-        file=sys.stderr,
-    )
+    for ticker in args.ticker:
+        print(
+            f"Running analysis: ticker={ticker} date={args.date} "
+            f"provider={args.provider} quick={args.quick_model} deep={args.deep_model} "
+            f"analysts={','.join(args.analysts)} depth={args.depth}",
+            file=sys.stderr,
+        )
 
-    final_state, decision = graph.propagate(args.ticker, args.date)
+        final_state, decision = graph.propagate(ticker, args.date)
 
-    timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
-    report_path = Path(args.report_dir) / f"{args.ticker}_{timestamp}"
-    report_file = save_report_to_disk(final_state, args.ticker, report_path)
+        timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+        report_path = Path(args.report_dir) / f"{ticker}_{timestamp}"
+        report_file = save_report_to_disk(final_state, ticker, report_path)
 
-    print(f"\nReport saved to:  {report_path.resolve()}", file=sys.stderr)
-    print(f"Complete report:  {report_file.name}", file=sys.stderr)
-    print(f"Full state JSON:  "
-          f"{Path(config['results_dir']) / args.ticker / 'TradingAgentsStrategy_logs'}",
-          file=sys.stderr)
-    print(f"\nFinal decision: {decision}")
+        print(f"\nReport saved to:  {report_path.resolve()}", file=sys.stderr)
+        print(f"Complete report:  {report_file.name}", file=sys.stderr)
+        print(f"Full state JSON:  "
+              f"{Path(config['results_dir']) / ticker / 'TradingAgentsStrategy_logs'}",
+              file=sys.stderr)
+        print(f"\nFinal decision: {decision}")
+
     return 0
 
 

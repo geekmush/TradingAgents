@@ -49,6 +49,10 @@ from .signal_processing import SignalProcessor
 class TradingAgentsGraph:
     """Main class that orchestrates the trading agents framework."""
 
+from tradingagents.agents.utils.execution_bridge import OptionsExecutionBridge
+# ... existing imports ...
+
+class TradingAgentsGraph:
     def __init__(
         self,
         selected_analysts=["market", "social", "news", "fundamentals"],
@@ -123,6 +127,9 @@ class TradingAgentsGraph:
         self.curr_state = None
         self.ticker = None
         self.log_states_dict = {}  # date to full state dict
+
+        # Execution Bridge for Options
+        self.options_bridge = OptionsExecutionBridge(self.config)
 
         # Set up the graph: keep the workflow for recompilation with a checkpointer.
         self.workflow = self.graph_setup.setup_graph(selected_analysts)
@@ -337,6 +344,13 @@ class TradingAgentsGraph:
             trade_date=trade_date,
             final_trade_decision=final_state["final_trade_decision"],
         )
+
+        # EXECUTION BRIDGE: Trigger options trade if present in final state
+        if "options_trade" in final_state and final_state["options_trade"]:
+            trade = final_state["options_trade"]
+            logger.info("Executing validated options trade for %s: %s", company_name, trade.strategy)
+            exec_result = self.options_bridge.execute_trade(trade)
+            logger.info("Execution result: %s", exec_result)
 
         # Clear checkpoint on successful completion to avoid stale state.
         if self.config.get("checkpoint_enabled"):
