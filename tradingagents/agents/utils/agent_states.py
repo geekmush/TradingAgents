@@ -1,6 +1,8 @@
-from typing import Annotated
+from typing import Annotated, Optional
 from typing_extensions import TypedDict
 from langgraph.graph import MessagesState
+
+from tradingagents.agents.schemas import OptionsTrade
 
 
 # Researcher team state
@@ -70,4 +72,5 @@ class AgentState(MessagesState):
         RiskDebateState, "Current state of the debate on evaluating risk"
     ]
     final_trade_decision: Annotated[str, "Final decision made by the Risk Analysts"]
+    options_trade: Annotated[Optional[OptionsTrade], "The validated options trade structure if an options strategy was chosen"]
     past_context: Annotated[str, "Memory log context injected at run start (same-ticker decisions + cross-ticker lessons)"]

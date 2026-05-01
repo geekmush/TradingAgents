@@ -226,3 +226,63 @@ def render_pm_decision(decision: PortfolioDecision) -> str:
     if decision.time_horizon:
         parts.extend(["", f"**Time Horizon**: {decision.time_horizon}"])
     return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# Options Strategist
+# ---------------------------------------------------------------------------
+
+
+class OptionLeg(BaseModel):
+    """A single leg of an options trade."""
+    action: str = Field(description="buy | sell")
+    type: str = Field(description="call | put")
+    strike: float = Field(description="The strike price of the option")
+    expiration: str = Field(description="Expiration date in YYYY-MM-DD format")
+    quantity: int = Field(description="Number of contracts")
+
+
+class OptionsTrade(BaseModel):
+    """Structured options trade produced by the Options Strategist.
+
+    This model matches the operational requirements of the OTB engine and
+    is used to bridge the directional thesis to an executable trade.
+    """
+    strategy: str = Field(description="Name of the strategy, e.g., 'Bull Call Debit Spread'")
+    direction: str = Field(description="bullish | bearish | neutral | hedge")
+    underlying: str = Field(description="Ticker symbol of the underlying asset")
+    legs: list[OptionLeg] = Field(description="List of legs constituting the trade")
+    debit_or_credit: str = Field(description="debit | credit")
+    net_premium: float = Field(description="Net premium per contract (positive for debit, negative for credit)")
+    max_loss: float = Field(description="Total maximum loss for the position")
+    max_gain: Optional[float] = Field(default=None, description="Total maximum gain (null if unbounded)")
+    breakevens: list[float] = Field(description="List of breakeven price levels")
+    delta: float = Field(description="Portfolio delta of the trade")
+    theta: float = Field(description="Portfolio theta of the trade")
+    vega: float = Field(description="Portfolio vega of the trade")
+    expected_pnl_at_target: float = Field(description="Expected P&L if price_target is hit at expiration")
+    horizon_alignment: str = Field(description="Justification for the chosen expiration relative to time_horizon")
+    liquidity_check: dict = Field(description="Details on leg liquidity (e.g., worst_leg_spread_bps, liquidity_decile)")
+    historical_edge: dict = Field(description="Backtest metrics from TimescaleDB (e.g., mean_pnl, win_rate)")
+    catalyst_handling: str = Field(description="Note on how binary catalysts are managed")
+    notes: str = Field(description="Concise reasoning for this specific structure")
+
+
+def render_options_trade(trade: OptionsTrade) -> str:
+    """Render an OptionsTrade to markdown for reporting and memory logs."""
+    legs_md = "\n".join([f"- {leg.action.upper()} {leg.quantity}x {leg.type.upper()} @ {leg.strike} ({leg.expiration})" for leg in trade.legs])
+    return "\n".join([
+        f"**Strategy**: {trade.strategy}",
+        f"**Direction**: {trade.direction.capitalize()}",
+        f"**Underlying**: {trade.underlying}",
+        "",
+        f"**Legs**:\n{legs_md}",
+        "",
+        f"**Financials**: {trade.debit_or_credit.capitalize()} {abs(trade.net_premium)} | Max Loss: {trade.max_loss} | Max Gain: {trade.max_gain or 'Unbounded'}",
+        f"**Greeks**: Delta: {trade.delta}, Theta: {trade.theta}, Vega: {trade.vega}",
+        f"**Target P&L**: {trade.expected_pnl_at_target}",
+        "",
+        f"**Horizon Alignment**: {trade.horizon_alignment}",
+        f"**Historical Edge**: {trade.historical_edge.get('win_rate', 'N/A')} win rate over {trade.historical_edge.get('trades_in_sample', 'N/A')} trades",
+        f"**Notes**: {trade.notes}",
+    ])
